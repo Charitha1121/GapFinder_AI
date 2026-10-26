@@ -6,18 +6,12 @@ import {
   Clock,
   CheckCircle2,
   Circle,
-  Flame,
-  ArrowRight,
   BookOpen,
   Sparkles,
   Sliders,
   Check,
-  RotateCcw,
-  BookCheck,
-  Timer,
-  Zap,
 } from 'lucide-react';
-import { RevisionPlan, RevisionTask, RevisionDay, StudyTechnique } from '@/types';
+import { RevisionPlan, RevisionTask, StudyTechnique } from '@/types';
 
 interface RevisionPlanViewProps {
   plan: RevisionPlan | null;

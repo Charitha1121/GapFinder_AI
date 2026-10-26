@@ -657,7 +657,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Textbook_Unit1_Balanced_Trees_Notes.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 4.2: Rotation Classification & Implementation',
           },
         },
@@ -674,7 +674,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Fall 2024 Final Exam - Question 3',
           },
         },
@@ -691,7 +691,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Fall 2024 Final Exam - Question 3',
           },
         },
@@ -708,7 +708,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Textbook_Unit1_Balanced_Trees_Notes.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 4.1: AVL Tree Balancing Invariants',
           },
         },
@@ -733,7 +733,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Professor_Lectures_Graphs_and_DP_Master.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 9.2: Topological Sorting & Cycle Detection',
           },
         },
@@ -750,7 +750,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Professor_Lectures_Graphs_and_DP_Master.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 9.2: Topological Sorting & Cycle Detection',
           },
         },
@@ -767,7 +767,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Midterm 2023 - Question 5B',
           },
         },
@@ -784,7 +784,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Professor_Lectures_Graphs_and_DP_Master.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 9.2: Topological Sorting & Cycle Detection',
           },
         },
@@ -809,7 +809,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Fall 2024 Final Exam - Question 7',
           },
         },
@@ -826,7 +826,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Professor_Lectures_Graphs_and_DP_Master.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 14.1: 0/1 Knapsack Equations & Space Compression',
           },
         },
@@ -843,7 +843,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Fall 2024 Final Exam - Question 11',
           },
         },
@@ -860,7 +860,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Professor_Lectures_Graphs_and_DP_Master.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 9.1: Breadth-First Search Optimality Limitations',
           },
         },
@@ -885,7 +885,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Past_Exams_Compilation_2023_2025.pdf',
-            docType: 'past_paper' as any,
+            docType: 'past_paper',
             section: 'Complete Past Paper Archive',
           },
         },
@@ -902,7 +902,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'Distributed_Systems_Core_Concepts.pdf',
-            docType: 'notes' as any,
+            docType: 'notes',
             section: 'Section 1.1 & 1.2',
           },
         },
@@ -919,7 +919,7 @@ export const INITIAL_REVISION_PLAN: RevisionPlan = {
           completed: false,
           citation: {
             docTitle: 'CS204_Official_Syllabus_Fall2026.pdf',
-            docType: 'syllabus' as any,
+            docType: 'syllabus',
             section: 'Course Objectives & Weight Distribution',
           },
         },

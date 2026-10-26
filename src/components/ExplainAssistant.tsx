@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  MessageSquareCode,
   Send,
   Sparkles,
   BookOpen,
@@ -10,13 +9,11 @@ import {
   ChevronUp,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   ShieldCheck,
-  RotateCcw,
   Bot,
   User,
 } from 'lucide-react';
-import { ChatMessage, DocumentChunk, RetrievedChunkMatch } from '@/types';
+import { ChatMessage, DocumentChunk } from '@/types';
 import { searchChunks } from '@/lib/ragEngine';
 import { askExplainTopic } from '@/lib/aiService';
 
@@ -24,6 +21,15 @@ interface ExplainAssistantProps {
   chunks: DocumentChunk[];
   geminiApiKey?: string;
   initialQuery?: string;
+}
+
+let nextMsgId = 1;
+function generateMsgId(prefix: string): string {
+  return `${prefix}-${nextMsgId++}`;
+}
+
+function getFormattedTime(): string {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export const ExplainAssistant: React.FC<ExplainAssistantProps> = ({
@@ -57,14 +63,14 @@ export const ExplainAssistant: React.FC<ExplainAssistantProps> = ({
     if (!q || isLoading) return;
 
     setInputQuery('');
-    const userMsgId = `usr-${Date.now()}`;
+    const userMsgId = generateMsgId('usr');
     const newMessages: ChatMessage[] = [
       ...messages,
       {
         id: userMsgId,
         sender: 'user',
         content: q,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: getFormattedTime(),
       },
     ];
     setMessages(newMessages);
@@ -78,24 +84,25 @@ export const ExplainAssistant: React.FC<ExplainAssistantProps> = ({
       const response = await askExplainTopic(q, matches, { apiKey: geminiApiKey });
 
       const assistantMsg: ChatMessage = {
-        id: `asst-${Date.now()}`,
+        id: generateMsgId('asst'),
         sender: 'assistant',
         content: response.answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: getFormattedTime(),
         retrievedChunks: matches,
         suggestedFollowUp: response.followUpSuggestions,
         checkQuestion: response.checkQuestion,
       };
 
       setMessages([...newMessages, assistantMsg]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error communicating with RAG engine';
       setMessages([
         ...newMessages,
         {
-          id: `err-${Date.now()}`,
+          id: generateMsgId('err'),
           sender: 'assistant',
-          content: `Unable to complete synthesis: ${err.message || 'Error communicating with RAG engine'}.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: `Unable to complete synthesis: ${errorMessage}.`,
+          timestamp: getFormattedTime(),
         },
       ]);
     } finally {

@@ -5,10 +5,8 @@ import {
   LineChart,
   TrendingUp,
   Award,
-  Clock,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   Sparkles,
   ArrowUpRight,
   BookCheck,
@@ -127,7 +125,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
               {currentStrong}
             </p>
             <p className="text-[11px] text-emerald-400/80 mt-0.5">
-              Target: {topics.length} of {topics.length}
+              {currentMedium} Medium &bull; Target: {topics.length} Strong
             </p>
           </div>
 

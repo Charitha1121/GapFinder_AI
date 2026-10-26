@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Key, X, Check, ShieldCheck, Sparkles, ExternalLink } from 'lucide-react';
+import { Key, X, Sparkles } from 'lucide-react';
 
 interface ApiKeyModalProps {
   isOpen: boolean;

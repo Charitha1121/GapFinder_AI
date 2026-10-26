@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
       matches,
       groundingContext: contextPrompt,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'RAG retrieval failed' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'RAG retrieval failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -36,18 +36,8 @@ import {
 import { analyzeDiagnosticQuiz } from '@/lib/gapEngine';
 import { generateAdaptiveRevisionPlan } from '@/lib/planEngine';
 import { chunkDocument } from '@/lib/ragEngine';
-import {
-  Compass,
-  FileQuestion,
-  Target,
-  CalendarDays,
-  MessageSquareCode,
-  LineChart,
-  FolderArchive,
-  GraduationCap,
-  Sparkles,
-  ShieldCheck,
-} from 'lucide-react';
+import { extractTopicsAndQuestionsFromDoc } from '@/lib/collegeIngestion';
+import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -68,7 +58,6 @@ export default function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showArchModal, setShowArchModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-
   // Active quiz filter (if targeted topic selected)
   const [activeQuizTopicId, setActiveQuizTopicId] = useState<string | null>(null);
   const [explainInitialQuery, setExplainInitialQuery] = useState<string>('');
@@ -76,16 +65,36 @@ export default function HomePage() {
   // Load state on client mount
   useEffect(() => {
     const state = loadInitialState();
-    setUser(state.user);
-    setDocuments(state.documents);
-    setChunks(state.chunks);
-    setTopics(state.topics);
-    setQuestions(state.questions);
-    setGapReport(state.gapReport);
-    setRevisionPlan(state.revisionPlan);
-    setHistory(state.history);
-    setGeminiApiKey(state.geminiApiKey);
-    setIsLoaded(true);
+    let loadedChunks = [...state.chunks];
+    let loadedTopics = [...state.topics];
+    let loadedQuestions = [...state.questions];
+
+    if (loadedTopics.length === 0 && loadedQuestions.length === 0) {
+      state.documents.forEach((document) => {
+        let documentChunks = loadedChunks.filter((chunk) => chunk.docId === document.id);
+        if (documentChunks.length === 0) {
+          documentChunks = chunkDocument(document);
+          loadedChunks = [...loadedChunks, ...documentChunks];
+        }
+
+        const extracted = extractTopicsAndQuestionsFromDoc(document, documentChunks);
+        loadedTopics = [...loadedTopics, ...extracted.newTopics];
+        loadedQuestions = [...loadedQuestions, ...extracted.newQuestions];
+      });
+    }
+
+    React.startTransition(() => {
+      setUser(state.user);
+      setDocuments(state.documents);
+      setChunks(loadedChunks);
+      setTopics(loadedTopics);
+      setQuestions(loadedQuestions);
+      setGapReport(state.gapReport);
+      setRevisionPlan(state.revisionPlan);
+      setHistory(state.history);
+      setGeminiApiKey(state.geminiApiKey);
+      setIsLoaded(true);
+    });
   }, []);
 
   // Save changes to storage
@@ -284,8 +293,11 @@ export default function HomePage() {
 
   const handleAddDocument = (newDoc: DocumentSource) => {
     const newChunks = chunkDocument(newDoc);
+    const extracted = extractTopicsAndQuestionsFromDoc(newDoc, newChunks);
     setDocuments((prev) => [newDoc, ...prev]);
     setChunks((prev) => [...newChunks, ...prev]);
+    setTopics((prev) => [...prev, ...extracted.newTopics]);
+    setQuestions((prev) => [...prev, ...extracted.newQuestions]);
   };
 
   const handleRemoveDocument = (docId: string) => {
@@ -327,7 +339,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-indigo-400 animate-spin" />
           <span className="text-sm font-semibold text-slate-200">
-            Initializing GapFinder AI Knowledge Store...
+            Preparing your iGebra workspace...
           </span>
         </div>
       </div>
@@ -352,7 +364,60 @@ export default function HomePage() {
       />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-7 sm:py-9 flex-1 w-full">
+        <section className="dashboard-intro mb-7 rounded-xl border border-slate-800 bg-slate-900/60 p-5 sm:p-7">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold text-emerald-400 mb-2">Your learning workspace</p>
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-50">
+                Make your next study session count.
+              </h1>
+              <p className="mt-3 text-sm sm:text-base text-slate-300 leading-relaxed">
+                Find the topics that need attention, then build a study plan around your exam.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveTab('diagnostic-quiz')}
+                className="btn-primary px-4 py-2.5 text-sm font-semibold rounded-lg cursor-pointer"
+              >
+                Start a diagnostic
+              </button>
+              <button
+                onClick={() => setActiveTab('materials')}
+                className="px-4 py-2.5 text-sm font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition cursor-pointer"
+              >
+                Manage materials
+              </button>
+            </div>
+          </div>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800">
+            <div className="bg-slate-950/60 px-4 py-3.5">
+              <p className="text-xs text-slate-500">Active course</p>
+              <p className="mt-1 text-sm font-semibold text-slate-100 truncate" title={user.courseName}>{user.courseName}</p>
+            </div>
+            <div className="bg-slate-950/60 px-4 py-3.5">
+              <p className="text-xs text-slate-500">Study materials</p>
+              <p className="mt-1 text-sm font-semibold text-slate-100">{documents.length} uploaded</p>
+            </div>
+            <div className="bg-slate-950/60 px-4 py-3.5">
+              <p className="text-xs text-slate-500">Topics to revisit</p>
+              <p className="mt-1 text-sm font-semibold text-slate-100">{weakCount} identified</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="mb-5 flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-100">Study overview</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Choose a topic or continue with a focused activity.</p>
+          </div>
+          <span className="hidden sm:inline-flex items-center gap-2 text-xs font-medium text-slate-400 capitalize">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            {activeTab.replace('-', ' ')}
+          </span>
+        </div>
+
         {activeTab === 'topic-map' && (
           <TopicMap
             topics={topics}
@@ -418,29 +483,50 @@ export default function HomePage() {
       </main>
 
       {/* Global Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/60 py-6 px-4 text-xs text-slate-500 text-center space-y-2">
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <span className="flex items-center gap-1.5 text-slate-400">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <strong>GapFinder AI</strong> — Precision Diagnostic Study &amp; Adaptive Revision
-          </span>
-          <span className="text-slate-700">•</span>
+      <footer className="border-t border-slate-800 bg-slate-950/70 py-6 px-4 text-xs text-slate-400 text-center space-y-3">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-200">
+            <span className="font-semibold">iGebra</span>
+          </div>
+          <span className="text-slate-700 hidden sm:inline">&bull;</span>
+          <span className="text-slate-500 font-medium">Personalized study workspace</span>
+        </div>
+
+        <div className="flex items-center justify-center gap-4 flex-wrap text-slate-400">
           <button
             onClick={() => setShowArchModal(true)}
-            className="hover:text-indigo-400 transition cursor-pointer"
+            className="hover:text-emerald-300 transition cursor-pointer"
           >
-            AI Architecture Overview
+            AI Architecture &amp; RAG Pipeline
           </button>
-          <span className="text-slate-700">•</span>
+          <span className="text-slate-700">&bull;</span>
           <button
             onClick={() => setShowAuthModal(true)}
-            className="hover:text-indigo-400 transition cursor-pointer"
+            className="hover:text-emerald-300 transition cursor-pointer"
           >
-            Demo Credentials &amp; Profiles
+            Judge Demo Profiles
+          </button>
+          <span className="text-slate-700">&bull;</span>
+          <button
+            onClick={() => setShowApiKeyModal(true)}
+            className="hover:text-emerald-300 transition cursor-pointer"
+          >
+            Google Gemini API Key
+          </button>
+          <span className="text-slate-700">&bull;</span>
+          <button
+            onClick={() => {
+              setActiveTab('diagnostic-quiz');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="hover:text-emerald-300 transition cursor-pointer text-emerald-400"
+          >
+            Take Diagnostic Drill &rarr;
           </button>
         </div>
-        <p className="text-[11px] text-slate-600">
-          Strict Retrieval-Augmented Generation • Zero-Hallucination Question Grounding • Personalized Spaced Revision Plans
+
+        <p className="text-[11px] text-slate-500 max-w-2xl mx-auto">
+          Grounded explanations from your course materials, with study recommendations shaped by diagnostic results.
         </p>
       </footer>
 

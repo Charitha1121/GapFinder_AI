@@ -11,7 +11,6 @@ import {
   BookOpen,
   Sparkles,
   Search,
-  Filter,
   Layers,
   GraduationCap,
 } from 'lucide-react';
@@ -104,7 +103,7 @@ export const TopicMap: React.FC<TopicMapProps> = ({
               <GraduationCap className="w-4 h-4 text-indigo-400" />
             </div>
             <p className="text-xl font-bold text-white mt-1">{averageMastery}%</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Across {topics.length} topics</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{totalAssessed} of {topics.length} topics assessed</p>
           </div>
 
           <div className="bg-rose-950/20 p-3.5 rounded-xl border border-rose-500/30">

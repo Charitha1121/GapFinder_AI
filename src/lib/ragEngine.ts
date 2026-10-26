@@ -28,7 +28,7 @@ export function chunkDocument(doc: DocumentSource, chunkSize = 400, overlap = 80
       const sectionText = content.substring(currentSection.index, nextIndex).trim();
 
       const words = sectionText.split(/\s+/);
-      let pageEstimate = Math.max(1, Math.floor(currentSection.index / 1200) + 1);
+      const pageEstimate = Math.max(1, Math.floor(currentSection.index / 1200) + 1);
 
       if (words.length <= chunkSize) {
         chunks.push({

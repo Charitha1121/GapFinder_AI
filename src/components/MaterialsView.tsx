@@ -4,21 +4,13 @@ import React, { useState } from 'react';
 import {
   FolderArchive,
   Upload,
-  FileText,
-  BookOpen,
-  Calendar,
   Layers,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
   RotateCcw,
   Plus,
   Trash2,
-  CheckCircle2,
   Eye,
 } from 'lucide-react';
 import { DocumentSource, DocumentChunk, DocumentType } from '@/types';
-import { chunkDocument } from '@/lib/ragEngine';
 
 interface MaterialsViewProps {
   documents: DocumentSource[];

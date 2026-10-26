@@ -5,7 +5,6 @@ import {
   FileQuestion,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   BookOpen,
   ArrowRight,
   ArrowLeft,
@@ -18,7 +17,7 @@ import {
   Award,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Question, QuizSubmission, Citation } from '@/types';
+import { Question, QuizSubmission } from '@/types';
 
 interface DiagnosticQuizProps {
   questions: Question[];
@@ -97,7 +96,7 @@ export const DiagnosticQuiz: React.FC<DiagnosticQuizProps> = ({
         spread: 70,
         origin: { y: 0.6 },
       });
-    } catch (e) {
+    } catch {
       // canvas-confetti fallback
     }
 

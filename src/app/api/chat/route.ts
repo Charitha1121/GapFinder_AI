@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     const result = await askExplainTopic(query, matches, { apiKey });
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Chat synthesis failed' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Chat synthesis failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

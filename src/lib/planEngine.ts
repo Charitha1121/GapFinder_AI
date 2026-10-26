@@ -1,4 +1,4 @@
-import { GapReport, RevisionPlan, RevisionDay, RevisionTask, StudyTechnique } from '@/types';
+import { GapReport, RevisionPlan, RevisionDay, RevisionTask } from '@/types';
 
 /**
  * Adaptive Revision Plan Generator

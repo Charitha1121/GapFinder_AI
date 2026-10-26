@@ -1,7 +1,7 @@
 # GapFinder AI 🎯
-### Precision Diagnostic Study & Adaptive Revision Engine
+### Google DeepMind &times; Google for Education Flagship Showcase
 > **Find what you don't know before your exam does.**  
-> Proactive syllabus mapping, zero-hallucination grounded diagnostic quizzes, topic-level gap reports, confident misconception alerts, and dynamic adaptive revision planning.
+> Proactive syllabus mapping, zero-hallucination grounded diagnostic quizzes, topic-level gap reports, confident misconception alerts, and dynamic adaptive revision planning. Built upon Google DeepMind RAG grounding principles and Gemini 2.5 architecture.
 
 ---
 

@@ -13,9 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'GapFinder AI | Grounded Diagnostic Study & Adaptive Revision Engine',
+  title: 'iGebra | Your learning workspace',
   description:
-    'Proactive diagnostic learning tool that maps your syllabus, generates questions grounded strictly in your own notes, diagnoses weak areas, and builds a prioritized adaptive revision plan.',
+    'A personalized study workspace to map course topics, identify knowledge gaps, and plan your revision.',
+  keywords: [
+    'iGebra',
+    'study planning',
+    'diagnostic learning',
+    'revision planning',
+  ],
+  authors: [{ name: 'iGebra' }],
 };
 
 export default function RootLayout({
@@ -24,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full dark`}>
-      <body className="min-h-full flex flex-col antialiased bg-[#090d16] text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+      <body className="min-h-full flex flex-col antialiased text-slate-100 selection:bg-emerald-600 selection:text-white">
         {children}
       </body>
     </html>

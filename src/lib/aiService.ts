@@ -171,6 +171,25 @@ export function generateQuestionFromChunk(
       explanation: `Nodes inside the cycle never achieve in-degree 0 because they depend on each other. Thus, the algorithm halts with processed count < V, confirming the presence of a cycle.`,
       citation: chunkToCitation(chunk),
     };
+  } else if (isDP) {
+    return {
+      id: `gen-q-${topic.id}-${index}`,
+      topicId: topic.id,
+      topicName: topic.name,
+      unitName: topic.unitName,
+      type: 'mcq',
+      difficulty: 'hard',
+      prompt: `Based on ${chunk.docTitle} (${chunk.section}): Why must the weight loop iterate in reverse order when compressing 0/1 knapsack DP to a 1D array?`,
+      options: [
+        { id: 'opt-1', text: 'To avoid overwriting values from the previous item state and prevent unbounded reuse' },
+        { id: 'opt-2', text: 'To ensure O(1) random memory access in the CPU L1 cache' },
+        { id: 'opt-3', text: 'To permit unbounded item reuse like in fractional knapsack' },
+        { id: 'opt-4', text: 'Because dynamic programming cannot read from indices smaller than the current weight' },
+      ],
+      correctOptionId: 'opt-1',
+      explanation: `Iterating backwards ensures dp[w - weight] reflects the state from the previous item, preventing the current item from being counted more than once.`,
+      citation: chunkToCitation(chunk),
+    };
   } else {
     return {
       id: `gen-q-${topic.id}-${index}`,

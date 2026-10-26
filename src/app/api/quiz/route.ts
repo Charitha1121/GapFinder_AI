@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
       topicId: topic.id,
       questions: generated,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Quiz generation failed' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Quiz generation failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

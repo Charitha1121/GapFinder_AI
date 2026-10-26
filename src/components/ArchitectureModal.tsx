@@ -10,9 +10,6 @@ import {
   Target,
   CalendarDays,
   ShieldCheck,
-  CheckCircle2,
-  ArrowRight,
-  GitBranch,
 } from 'lucide-react';
 
 interface ArchitectureModalProps {

@@ -4,18 +4,12 @@ import React from 'react';
 import {
   Target,
   AlertTriangle,
-  AlertCircle,
-  HelpCircle,
   CheckCircle2,
   CalendarDays,
   RotateCcw,
   BookOpen,
   ArrowRight,
   ShieldAlert,
-  Flame,
-  Award,
-  Download,
-  Share2,
   Lightbulb,
 } from 'lucide-react';
 import { GapReport, TopicDiagnosis } from '@/types';

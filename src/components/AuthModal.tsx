@@ -4,16 +4,11 @@ import React, { useState } from 'react';
 import {
   ShieldCheck,
   X,
-  User,
-  Key,
-  GraduationCap,
   Sparkles,
   ArrowRight,
-  RotateCcw,
-  CheckCircle2,
 } from 'lucide-react';
 import { UserProfile } from '@/types';
-import { DEMO_USER, FRESH_STUDENT } from '@/lib/sampleData';
+import { FRESH_STUDENT } from '@/lib/sampleData';
 
 interface AuthModalProps {
   isOpen: boolean;
