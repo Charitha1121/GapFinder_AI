@@ -15,6 +15,7 @@ import { MaterialsView } from '@/components/MaterialsView';
 import { ArchitectureModal } from '@/components/ArchitectureModal';
 import { AuthModal } from '@/components/AuthModal';
 import { ApiKeyModal } from '@/components/ApiKeyModal';
+import { CourseSettingsModal } from '@/components/CourseSettingsModal';
 
 import {
   Topic,
@@ -35,9 +36,9 @@ import {
 } from '@/lib/storage';
 import { analyzeDiagnosticQuiz } from '@/lib/gapEngine';
 import { generateAdaptiveRevisionPlan } from '@/lib/planEngine';
-import { chunkDocument } from '@/lib/ragEngine';
-import { extractTopicsAndQuestionsFromDoc } from '@/lib/collegeIngestion';
-import { Sparkles } from 'lucide-react';
+import { chunkDocument, searchChunks } from '@/lib/ragEngine';
+import { buildGroundedQuestions, extractTopicsAndQuestionsFromDoc, inferCourseNameFromSyllabus } from '@/lib/collegeIngestion';
+import { Pencil, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -58,6 +59,7 @@ export default function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showArchModal, setShowArchModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showCourseSettings, setShowCourseSettings] = useState(false);
   // Active quiz filter (if targeted topic selected)
   const [activeQuizTopicId, setActiveQuizTopicId] = useState<string | null>(null);
   const [explainInitialQuery, setExplainInitialQuery] = useState<string>('');
@@ -65,11 +67,20 @@ export default function HomePage() {
   // Load state on client mount
   useEffect(() => {
     const state = loadInitialState();
+    let loadedUser = state.user;
     let loadedChunks = [...state.chunks];
-    let loadedTopics = [...state.topics];
-    let loadedQuestions = [...state.questions];
+    const loadedTopics = [...state.topics];
+    const loadedQuestions = [...state.questions];
 
-    if (loadedTopics.length === 0 && loadedQuestions.length === 0) {
+    const savedSyllabus = state.documents.find((document) => document.type === 'syllabus');
+    if (state.user.role === 'student' && state.user.courseName.startsWith('CS 204:') && savedSyllabus) {
+      loadedUser = {
+        ...state.user,
+        courseName: inferCourseNameFromSyllabus(savedSyllabus),
+      };
+    }
+
+    if (state.user.role === 'student') {
       state.documents.forEach((document) => {
         let documentChunks = loadedChunks.filter((chunk) => chunk.docId === document.id);
         if (documentChunks.length === 0) {
@@ -78,13 +89,48 @@ export default function HomePage() {
         }
 
         const extracted = extractTopicsAndQuestionsFromDoc(document, documentChunks);
-        loadedTopics = [...loadedTopics, ...extracted.newTopics];
-        loadedQuestions = [...loadedQuestions, ...extracted.newQuestions];
+        extracted.newTopics.forEach((topic) => {
+          if (!loadedTopics.some((existingTopic) => existingTopic.id === topic.id)) {
+            loadedTopics.push(topic);
+          }
+
+          const existingQuestionCount = loadedQuestions.filter((question) => question.topicId === topic.id).length;
+          if (existingQuestionCount < 5) {
+            const topicQuestions = extracted.newQuestions.filter((question) => question.topicId === topic.id);
+            loadedQuestions.push(...topicQuestions.slice(0, 5 - existingQuestionCount));
+          }
+        });
       });
     }
 
+    loadedTopics.forEach((topic) => {
+      const existingQuestions = loadedQuestions.filter((question) => question.topicId === topic.id);
+      if (existingQuestions.length >= 5) return;
+
+      const citedDocTitle = existingQuestions[0]?.citation.docTitle;
+      const candidateChunks = citedDocTitle
+        ? loadedChunks.filter((chunk) => chunk.docTitle === citedDocTitle)
+        : loadedChunks;
+      const matchingChunks = searchChunks(
+        `${topic.name} ${topic.unitName}`,
+        candidateChunks,
+        5,
+        0.01
+      ).map((match) => match.chunk);
+      const sourceDoc = state.documents.find((document) => document.title === matchingChunks[0]?.docTitle);
+      if (!sourceDoc || matchingChunks.length === 0) return;
+
+      const generatedQuestions = buildGroundedQuestions(sourceDoc, topic, matchingChunks);
+      const existingQuestionIds = new Set(loadedQuestions.map((question) => question.id));
+      loadedQuestions.push(
+        ...generatedQuestions
+          .filter((question) => !existingQuestionIds.has(question.id))
+          .slice(0, 5 - existingQuestions.length)
+      );
+    });
+
     React.startTransition(() => {
-      setUser(state.user);
+      setUser(loadedUser);
       setDocuments(state.documents);
       setChunks(loadedChunks);
       setTopics(loadedTopics);
@@ -298,6 +344,9 @@ export default function HomePage() {
     setChunks((prev) => [...newChunks, ...prev]);
     setTopics((prev) => [...prev, ...extracted.newTopics]);
     setQuestions((prev) => [...prev, ...extracted.newQuestions]);
+    if (newDoc.type === 'syllabus') {
+      setUser((prev) => ({ ...prev, courseName: inferCourseNameFromSyllabus(newDoc) }));
+    }
   };
 
   const handleRemoveDocument = (docId: string) => {
@@ -393,7 +442,18 @@ export default function HomePage() {
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800">
             <div className="bg-slate-950/60 px-4 py-3.5">
-              <p className="text-xs text-slate-500">Active course</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-500">Active course</p>
+                <button
+                  aria-label="Edit active course"
+                  className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-emerald-300"
+                  onClick={() => setShowCourseSettings(true)}
+                  title="Edit active course"
+                  type="button"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <p className="mt-1 text-sm font-semibold text-slate-100 truncate" title={user.courseName}>{user.courseName}</p>
             </div>
             <div className="bg-slate-950/60 px-4 py-3.5">
@@ -552,6 +612,13 @@ export default function HomePage() {
         onClose={() => setShowApiKeyModal(false)}
         currentKey={geminiApiKey}
         onSaveKey={(key) => setGeminiApiKey(key)}
+      />
+
+      <CourseSettingsModal
+        isOpen={showCourseSettings}
+        courseName={user.courseName}
+        onClose={() => setShowCourseSettings(false)}
+        onSave={(courseName) => setUser((prev) => ({ ...prev, courseName }))}
       />
     </div>
   );

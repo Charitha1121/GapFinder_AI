@@ -19,6 +19,27 @@ export interface CollegeCourseTemplate {
   }[];
 }
 
+export function inferCourseNameFromSyllabus(doc: DocumentSource): string {
+  const lines = doc.content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const courseHeading = lines.find(
+    (line) => !/^(?:unit|section|chapter|module|department|credits|prerequisites|course objectives?)\b/i.test(line)
+  );
+  const labeledCourseName = courseHeading?.match(/^(?:course(?:\s+syllabus)?|syllabus)\s*[:\-–—]\s*(.+)$/i)?.[1];
+  const heading = (labeledCourseName || courseHeading || '')
+    .replace(/^(?:course\s+)?syllabus\s*[\-–—]\s*/i, '')
+    .trim();
+
+  if (heading && heading.toLowerCase() !== 'syllabus' && heading.length <= 100) {
+    return heading;
+  }
+
+  return doc.title
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\bsyllabus\b/i, '')
+    .trim() || 'New course';
+}
+
 export const COLLEGE_COURSE_TEMPLATES: CollegeCourseTemplate[] = [
   {
     id: 'mit-6006-algos',
@@ -263,6 +284,58 @@ function extractTextFromPdfArrayBuffer(buffer: ArrayBuffer): string {
  * Automatically extracts Syllabus Topics and Grounded Diagnostic Questions
  * from a newly uploaded document.
  */
+export function buildGroundedQuestions(
+  doc: DocumentSource,
+  topic: Topic,
+  chunks: DocumentChunk[]
+): Question[] {
+  if (chunks.length === 0) return [];
+
+  const prompts = [
+    'Which statement is supported directly by the cited material?',
+    'According to the source passage, which detail is accurate?',
+    'Which option matches the information in the course material?',
+    `What should a student remember about "${topic.name}" from this passage?`,
+    'Which claim is consistent with the cited section?',
+  ];
+  const distractors = [
+    `The material recommends ignoring the documented requirements for ${topic.name}.`,
+    `The material says ${topic.name} has no constraints or conditions.`,
+    `The material advises replacing the described approach with an arbitrary one.`,
+  ];
+
+  return Array.from({ length: 5 }, (_, questionIndex) => {
+    const chunk = chunks[questionIndex % chunks.length];
+    const statements = chunk.text
+      .split(/(?<=[.!?])\s+|\n+/)
+      .map((statement) => statement.trim())
+      .filter((statement) => statement.length > 20 && !statement.toLowerCase().startsWith(chunk.section.toLowerCase()));
+    const evidence = (statements[questionIndex % Math.max(1, statements.length)] || chunk.text)
+      .replace(/\s+/g, ' ')
+      .slice(0, 240);
+    const correctIndex = questionIndex % 4;
+    let distractorIndex = 0;
+    const options = Array.from({ length: 4 }, (_, optionIndex) => ({
+      id: `opt-${String.fromCharCode(97 + optionIndex)}`,
+      text: optionIndex === correctIndex ? evidence : distractors[distractorIndex++],
+    }));
+
+    return {
+      id: `q-${doc.id}-${topic.id}-${questionIndex + 1}`,
+      topicId: topic.id,
+      topicName: topic.name,
+      unitName: topic.unitName,
+      type: 'mcq',
+      difficulty: questionIndex < 2 ? 'easy' : questionIndex < 4 ? 'medium' : 'hard',
+      prompt: `${prompts[questionIndex]} (${doc.title}, ${chunk.section})`,
+      options,
+      correctOptionId: `opt-${String.fromCharCode(97 + correctIndex)}`,
+      explanation: `The cited passage states: "${evidence}"`,
+      citation: chunkToCitation(chunk),
+    };
+  });
+}
+
 export function extractTopicsAndQuestionsFromDoc(
   doc: DocumentSource,
   chunks: DocumentChunk[]
@@ -310,28 +383,7 @@ export function extractTopicsAndQuestionsFromDoc(
 
       newTopics.push(topic);
 
-      // Generate a grounded question for this topic
-      if (sampleChunk) {
-        const question: Question = {
-          id: `q-${doc.id}-${idx + 1}`,
-          topicId: topic.id,
-          topicName: topic.name,
-          unitName: topic.unitName,
-          type: 'mcq',
-          difficulty: 'medium',
-          prompt: `Based on ${doc.title} (${sampleChunk.section}): Which of the following statements represents the core invariant of "${topic.name}"?`,
-          options: [
-            { id: 'opt-a', text: `Maintaining strict boundary invariants and non-violating state transitions as detailed in §${sampleChunk.section}` },
-            { id: 'opt-b', text: 'Executing arbitrary unverified state mutations without boundary checking' },
-            { id: 'opt-c', text: 'Bypassing algorithm constraints whenever input sizes exceed O(n)' },
-            { id: 'opt-d', text: 'Permitting duplicate unbounded reuse contrary to standard specification' },
-          ],
-          correctOptionId: 'opt-a',
-          explanation: `According to ${doc.title} (§${sampleChunk.section}), algorithm correctness relies on maintaining strict state boundary invariants.`,
-          citation: chunkToCitation(sampleChunk),
-        };
-        newQuestions.push(question);
-      }
+      newQuestions.push(...buildGroundedQuestions(doc, topic, relevantChunks.length > 0 ? relevantChunks : sampleChunk ? [sampleChunk] : []));
     });
   } else {
     // If no explicit section headers, create a high-yield topic from the document
@@ -356,25 +408,7 @@ export function extractTopicsAndQuestionsFromDoc(
 
     newTopics.push(topic);
 
-    if (sampleChunk) {
-      newQuestions.push({
-        id: `q-${doc.id}-1`,
-        topicId: topic.id,
-        topicName: topic.name,
-        unitName: topic.unitName,
-        type: 'scenario',
-        difficulty: 'medium',
-        prompt: `Referencing ${doc.title} (${sampleChunk.section}): What primary operational requirement is emphasized in this module?`,
-        options: [
-          { id: 'opt-1', text: 'Strict adherence to foundational invariants outlined in the official notes' },
-          { id: 'opt-2', text: 'Arbitrary heuristic estimation without proof of correctness' },
-          { id: 'opt-3', text: 'Disregarding space and time trade-offs during implementation' },
-        ],
-        correctOptionId: 'opt-1',
-        explanation: `The uploaded course text emphasizes maintaining strict state invariants to ensure correctness.`,
-        citation: chunkToCitation(sampleChunk),
-      });
-    }
+    newQuestions.push(...buildGroundedQuestions(doc, topic, sampleChunk ? [sampleChunk] : []));
   }
 
   return { newTopics, newQuestions };
