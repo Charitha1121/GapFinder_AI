@@ -32,11 +32,52 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   const [docType, setDocType] = useState<DocumentType>('notes');
   const [docContent, setDocContent] = useState('');
   const [docDescription, setDocDescription] = useState('');
+  const [docPageCount, setDocPageCount] = useState<number | undefined>();
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [inspectDocId, setInspectDocId] = useState<string | null>(null);
+
+  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadError('');
+    setDocTitle(file.name);
+    setDocPageCount(undefined);
+
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      setIsExtracting(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/documents/extract', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'PDF text extraction failed.');
+        setDocContent(result.content);
+        setDocPageCount(result.pageCount);
+      } catch (error) {
+        setUploadError(error instanceof Error ? error.message : 'Could not read this file.');
+      } finally {
+        setIsExtracting(false);
+      }
+      return;
+    }
+
+    if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
+      try {
+        setDocContent(await file.text());
+      } catch {
+        setUploadError('Could not read this text file.');
+      }
+      return;
+    }
+
+    setUploadError('Choose a PDF or plain-text file.');
+  };
 
   const handleUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docTitle.trim() || !docContent.trim()) return;
+    if (!docTitle.trim() || !docContent.trim() || isExtracting) return;
 
     const newDoc: DocumentSource = {
       id: `doc-${Date.now()}`,
@@ -44,7 +85,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
       type: docType,
       content: docContent,
       fileSize: `${Math.round(docContent.length / 1024) || 1} KB`,
-      pageCount: Math.max(1, Math.floor(docContent.length / 1200) + 1),
+      pageCount: docPageCount || Math.max(1, Math.floor(docContent.length / 1200) + 1),
       uploadedAt: new Date().toLocaleString(),
       description: docDescription || `Uploaded ${docType} document with student notes and content.`,
     };
@@ -53,6 +94,8 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
     setDocTitle('');
     setDocContent('');
     setDocDescription('');
+    setDocPageCount(undefined);
+    setUploadError('');
     setIsUploading(false);
   };
 
@@ -131,6 +174,20 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
           </div>
 
           <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
+            <div className="space-y-1.5">
+              <label className="text-slate-300 font-medium" htmlFor="material-file">Upload PDF or text file:</label>
+              <input
+                accept=".pdf,.txt,application/pdf,text/plain"
+                className="block w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-200"
+                disabled={isExtracting}
+                id="material-file"
+                onChange={handleFileSelection}
+                type="file"
+              />
+              {isExtracting && <p className="text-emerald-300">Extracting PDF text…</p>}
+              {uploadError && <p className="text-rose-300" role="alert">{uploadError}</p>}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-slate-300 font-medium">Document Title:</label>
@@ -193,9 +250,10 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shadow-md shadow-indigo-900/40"
+                disabled={isExtracting}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-60 text-white font-semibold cursor-pointer shadow-md shadow-indigo-900/40"
               >
-                Process &amp; Vectorize Chunks
+                {isExtracting ? 'Extracting text…' : 'Process &amp; Vectorize Chunks'}
               </button>
             </div>
           </form>

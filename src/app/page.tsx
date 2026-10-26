@@ -33,11 +33,13 @@ import {
   saveState,
   resetToDemoJudge,
   resetToFreshStudent,
+  getFreshStudentState,
 } from '@/lib/storage';
 import { analyzeDiagnosticQuiz } from '@/lib/gapEngine';
 import { generateAdaptiveRevisionPlan } from '@/lib/planEngine';
 import { chunkDocument, searchChunks } from '@/lib/ragEngine';
 import { buildGroundedQuestions, extractTopicsAndQuestionsFromDoc, inferCourseNameFromSyllabus } from '@/lib/collegeIngestion';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Pencil, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
@@ -66,87 +68,123 @@ export default function HomePage() {
 
   // Load state on client mount
   useEffect(() => {
-    const state = loadInitialState();
-    let loadedUser = state.user;
-    let loadedChunks = [...state.chunks];
-    const loadedTopics = [...state.topics];
-    const loadedQuestions = [...state.questions];
+    const loadState = async () => {
+      const state = loadInitialState();
+      const supabase = getSupabaseBrowserClient();
 
-    const savedSyllabus = state.documents.find((document) => document.type === 'syllabus');
-    if (state.user.role === 'student' && state.user.courseName.startsWith('CS 204:') && savedSyllabus) {
-      loadedUser = {
-        ...state.user,
-        courseName: inferCourseNameFromSyllabus(savedSyllabus),
-      };
-    }
+      if (supabase) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          const { data: workspace, error } = await supabase
+            .from('user_workspaces')
+            .select('state')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
 
-    if (state.user.role === 'student') {
-      state.documents.forEach((document) => {
-        let documentChunks = loadedChunks.filter((chunk) => chunk.docId === document.id);
-        if (documentChunks.length === 0) {
-          documentChunks = chunkDocument(document);
-          loadedChunks = [...loadedChunks, ...documentChunks];
+          if (error) console.error('Could not load account workspace:', error.message);
+          if (workspace?.state) {
+            Object.assign(state, workspace.state);
+          } else {
+            Object.assign(state, getFreshStudentState());
+          }
+
+          state.user = {
+            ...state.user,
+            id: authData.user.id,
+            email: authData.user.email || '',
+            name: String(authData.user.user_metadata?.full_name || state.user.name),
+            role: 'student',
+          };
+        } else if (/^[0-9a-f-]{36}$/i.test(state.user.id)) {
+          Object.assign(state, getFreshStudentState());
         }
+      } else if (/^[0-9a-f-]{36}$/i.test(state.user.id)) {
+        Object.assign(state, getFreshStudentState());
+      }
 
-        const extracted = extractTopicsAndQuestionsFromDoc(document, documentChunks);
-        extracted.newTopics.forEach((topic) => {
-          if (!loadedTopics.some((existingTopic) => existingTopic.id === topic.id)) {
-            loadedTopics.push(topic);
+      let loadedUser = state.user;
+      let loadedChunks = [...state.chunks];
+      const loadedTopics = [...state.topics];
+      const loadedQuestions = [...state.questions];
+
+      const savedSyllabus = state.documents.find((document) => document.type === 'syllabus');
+      if (state.user.role === 'student' && state.user.courseName.startsWith('CS 204:') && savedSyllabus) {
+        loadedUser = {
+          ...state.user,
+          courseName: inferCourseNameFromSyllabus(savedSyllabus),
+        };
+      }
+
+      if (state.user.role === 'student') {
+        state.documents.forEach((document) => {
+          let documentChunks = loadedChunks.filter((chunk) => chunk.docId === document.id);
+          if (documentChunks.length === 0) {
+            documentChunks = chunkDocument(document);
+            loadedChunks = [...loadedChunks, ...documentChunks];
           }
 
-          const existingQuestionCount = loadedQuestions.filter((question) => question.topicId === topic.id).length;
-          if (existingQuestionCount < 5) {
-            const topicQuestions = extracted.newQuestions.filter((question) => question.topicId === topic.id);
-            loadedQuestions.push(...topicQuestions.slice(0, 5 - existingQuestionCount));
-          }
+          const extracted = extractTopicsAndQuestionsFromDoc(document, documentChunks);
+          extracted.newTopics.forEach((topic) => {
+            if (!loadedTopics.some((existingTopic) => existingTopic.id === topic.id)) {
+              loadedTopics.push(topic);
+            }
+
+            const existingQuestionCount = loadedQuestions.filter((question) => question.topicId === topic.id).length;
+            if (existingQuestionCount < 5) {
+              const topicQuestions = extracted.newQuestions.filter((question) => question.topicId === topic.id);
+              loadedQuestions.push(...topicQuestions.slice(0, 5 - existingQuestionCount));
+            }
+          });
         });
+      }
+
+      loadedTopics.forEach((topic) => {
+        const existingQuestions = loadedQuestions.filter((question) => question.topicId === topic.id);
+        if (existingQuestions.length >= 5) return;
+
+        const citedDocTitle = existingQuestions[0]?.citation.docTitle;
+        const candidateChunks = citedDocTitle
+          ? loadedChunks.filter((chunk) => chunk.docTitle === citedDocTitle)
+          : loadedChunks;
+        const matchingChunks = searchChunks(
+          `${topic.name} ${topic.unitName}`,
+          candidateChunks,
+          5,
+          0.01
+        ).map((match) => match.chunk);
+        const sourceDoc = state.documents.find((document) => document.title === matchingChunks[0]?.docTitle);
+        if (!sourceDoc || matchingChunks.length === 0) return;
+
+        const generatedQuestions = buildGroundedQuestions(sourceDoc, topic, matchingChunks);
+        const existingQuestionIds = new Set(loadedQuestions.map((question) => question.id));
+        loadedQuestions.push(
+          ...generatedQuestions
+            .filter((question) => !existingQuestionIds.has(question.id))
+            .slice(0, 5 - existingQuestions.length)
+        );
       });
-    }
 
-    loadedTopics.forEach((topic) => {
-      const existingQuestions = loadedQuestions.filter((question) => question.topicId === topic.id);
-      if (existingQuestions.length >= 5) return;
+      React.startTransition(() => {
+        setUser(loadedUser);
+        setDocuments(state.documents);
+        setChunks(loadedChunks);
+        setTopics(loadedTopics);
+        setQuestions(loadedQuestions);
+        setGapReport(state.gapReport);
+        setRevisionPlan(state.revisionPlan);
+        setHistory(state.history);
+        setGeminiApiKey(state.geminiApiKey);
+        setIsLoaded(true);
+      });
+    };
 
-      const citedDocTitle = existingQuestions[0]?.citation.docTitle;
-      const candidateChunks = citedDocTitle
-        ? loadedChunks.filter((chunk) => chunk.docTitle === citedDocTitle)
-        : loadedChunks;
-      const matchingChunks = searchChunks(
-        `${topic.name} ${topic.unitName}`,
-        candidateChunks,
-        5,
-        0.01
-      ).map((match) => match.chunk);
-      const sourceDoc = state.documents.find((document) => document.title === matchingChunks[0]?.docTitle);
-      if (!sourceDoc || matchingChunks.length === 0) return;
-
-      const generatedQuestions = buildGroundedQuestions(sourceDoc, topic, matchingChunks);
-      const existingQuestionIds = new Set(loadedQuestions.map((question) => question.id));
-      loadedQuestions.push(
-        ...generatedQuestions
-          .filter((question) => !existingQuestionIds.has(question.id))
-          .slice(0, 5 - existingQuestions.length)
-      );
-    });
-
-    React.startTransition(() => {
-      setUser(loadedUser);
-      setDocuments(state.documents);
-      setChunks(loadedChunks);
-      setTopics(loadedTopics);
-      setQuestions(loadedQuestions);
-      setGapReport(state.gapReport);
-      setRevisionPlan(state.revisionPlan);
-      setHistory(state.history);
-      setGeminiApiKey(state.geminiApiKey);
-      setIsLoaded(true);
-    });
+    void loadState();
   }, []);
 
   // Save changes to storage
   useEffect(() => {
     if (!isLoaded) return;
-    saveState({
+    const state = {
       user,
       documents,
       chunks,
@@ -156,7 +194,19 @@ export default function HomePage() {
       revisionPlan,
       history,
       geminiApiKey,
-    });
+    };
+    saveState(state);
+
+    const supabase = getSupabaseBrowserClient();
+    if (supabase && user.role === 'student' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(user.id)) {
+      void supabase.from('user_workspaces').upsert({
+        user_id: user.id,
+        state: { ...state, geminiApiKey: '' },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' }).then(({ error }) => {
+        if (error) console.error('Could not save account workspace:', error.message);
+      });
+    }
   }, [
     isLoaded,
     user,

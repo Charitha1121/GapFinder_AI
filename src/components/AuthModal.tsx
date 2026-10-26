@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '@/types';
 import { FRESH_STUDENT } from '@/lib/sampleData';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -31,26 +32,88 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
 
   if (!isOpen) return null;
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
+  const handleDemoProfile = async (selectProfile: () => void) => {
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+    }
+    selectProfile();
+    onClose();
+  };
+
+  const handleCustomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setAuthMessage('Live accounts are not configured. Add the Supabase values from .env.example; demo profiles remain available.');
+      return;
+    }
+
+    setAuthMessage('');
+    const result = isSignUp
+      ? await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { full_name: name.trim() || email.split('@')[0] } },
+        })
+      : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+
+    if (result.error) {
+      setAuthMessage(result.error.message);
+      return;
+    }
+
+    if (isSignUp && !result.data.session) {
+      setAuthMessage('Check your email to confirm your account, then sign in here.');
+      return;
+    }
+
+    const authUser = result.data.user;
+    if (!authUser) {
+      setAuthMessage('Authentication did not return a user. Please try again.');
+      return;
+    }
+
     const user: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: name.trim() || email.split('@')[0],
-      email: email.trim(),
+      id: authUser.id,
+      name: String(authUser.user_metadata?.full_name || name.trim() || authUser.email?.split('@')[0] || 'Student'),
+      email: authUser.email || email.trim(),
       role: 'student',
-      courseName: 'CS 204: Advanced Data Structures & Algorithms',
+      courseName: 'New course',
       examDate: '2026-11-15',
       dailyStudyHours: 2.0,
     };
 
+    onSelectStudentMode();
     onCustomLogin(user);
     onClose();
+    window.location.reload();
   };
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+    onSelectStudentMode();
+    onClose();
+    window.location.reload();
+  };
+
+  const hasSupabaseAuth = Boolean(getSupabaseBrowserClient());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -90,8 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Profile 1: Preloaded Judge */}
           <button
             onClick={() => {
-              onSelectJudgeMode();
-              onClose();
+              void handleDemoProfile(onSelectJudgeMode);
             }}
             className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
               currentUser.role === 'judge'
@@ -119,8 +181,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Profile 2: Fresh Student */}
           <button
             onClick={() => {
-              onSelectStudentMode();
-              onClose();
+              void handleDemoProfile(onSelectStudentMode);
             }}
             className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
               currentUser.id === FRESH_STUDENT.id
@@ -157,6 +218,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Custom Auth Form */}
         <form onSubmit={handleCustomSubmit} className="space-y-3 text-xs">
+          {!hasSupabaseAuth && (
+            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+              Configure Supabase to enable real email/password accounts. Demo profiles work without it.
+            </p>
+          )}
+
           {isSignUp && (
             <div className="space-y-1">
               <label className="text-slate-300 font-medium">Your Name:</label>
@@ -200,6 +267,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             {isSignUp ? 'Create Student Account' : 'Sign In'}
           </button>
+
+          {authMessage && <p className="text-xs text-amber-200" role="status">{authMessage}</p>}
+
+          {hasSupabaseAuth && /^[0-9a-f-]{36}$/i.test(currentUser.id) && (
+            <button
+              className="w-full rounded-lg border border-slate-700 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
+              onClick={() => void handleSignOut()}
+              type="button"
+            >
+              Sign out
+            </button>
+          )}
 
           <div className="text-center pt-1">
             <button

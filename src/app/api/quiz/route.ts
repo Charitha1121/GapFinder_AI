@@ -6,7 +6,7 @@ import { DocumentChunk, Topic } from '@/types';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { topic, chunks, count = 3 } = body as {
+    const { topic, chunks, count = 5 } = body as {
       topic: Topic;
       chunks: DocumentChunk[];
       count?: number;
@@ -16,9 +16,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Topic and chunks are required' }, { status: 400 });
     }
 
+    const questionCount = Math.max(5, Math.min(10, Math.floor(Number(count) || 5)));
     const relevantMatches = searchChunks(topic.name + ' ' + topic.description, chunks, 5);
-    const generated = relevantMatches.slice(0, count).map((m, idx) => {
-      return generateQuestionFromChunk(topic, m.chunk, idx + 1);
+    if (relevantMatches.length === 0) {
+      return NextResponse.json({ error: 'No relevant course material was found for this topic.' }, { status: 422 });
+    }
+
+    const generated = Array.from({ length: questionCount }, (_, index) => {
+      const match = relevantMatches[index % relevantMatches.length];
+      return generateQuestionFromChunk(topic, match.chunk, index + 1);
     });
 
     return NextResponse.json({
